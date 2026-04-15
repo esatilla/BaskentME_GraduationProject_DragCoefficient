@@ -1,0 +1,13 @@
+[project]
+name = "drag-tracker"
+version = "0.1.0"
+description = "Basler acA1440-220uc ile sürüklenme katsayısı ölçüm sistemi"
+requires-python = ">=3.12"
+dependencies = [
+    "opencv-python>=4.8.0",
+    "numpy>=1.24.0",
+    "scipy>=1.10.0",
+    "Pillow>=10.0.0",
+    "matplotlib>=3.7.0",
+    "pypylon>=3.0.0",
+]
