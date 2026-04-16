@@ -65,8 +65,15 @@ class PanelsMixin:
                 command=self._on_src_change
             ).pack(side="left")
 
-        # Kamera ayarları
-        self.live_frame = tk.LabelFrame(p, text=" Kamera Ayarları ",
+        # Kaynak ayarları placeholder — radio butonlarının hemen altı
+        self._src_slot = tk.Frame(p, bg=PANEL_BG)
+        self._src_slot.pack(fill="x")
+
+        # ── Kamera container ──────────────────────────────────────────────
+        self.live_container = tk.Frame(self._src_slot, bg=PANEL_BG)
+
+        self.live_frame = tk.LabelFrame(self.live_container,
+                                         text=" Kamera Ayarları ",
                                          bg=PANEL_BG, fg=TEXT_DIM, font=FONT_LABEL)
         self.live_frame.pack(fill="x", padx=8, pady=4)
         self._slider(self.live_frame, "Exposure (μs):", self.cam_exposure, 100, 10000,
@@ -81,17 +88,21 @@ class PanelsMixin:
                       command=lambda hv=h_val: self._apply_roi_height(hv)
                       ).pack(side="left", padx=2)
 
-        self.cam_btn = tk.Button(p, text="🔌  Kamerayı Başlat",
+        self.cam_btn = tk.Button(self.live_container,
+                                  text="🔌  Kamerayı Başlat",
                                   command=self._toggle_camera, font=FONT_LABEL,
                                   bg=SUCCESS, fg="white", relief="flat", cursor="hand2")
         self.cam_btn.pack(fill="x", padx=8, pady=2)
-        tk.Button(p, text="⚙  Gelişmiş Kamera Ayarları",
+        tk.Button(self.live_container, text="⚙  Gelişmiş Kamera Ayarları",
                   command=self._open_settings, font=FONT_LABEL,
                   bg=ACCENT, fg=TEXT_LIGHT, relief="flat", cursor="hand2"
                   ).pack(fill="x", padx=8, pady=2)
 
-        # Video dosyası
-        self.video_frame_ui = tk.LabelFrame(p, text=" Video Dosyası ",
+        # ── Video container ──────────────────────────────────────────────
+        self.video_container = tk.Frame(self._src_slot, bg=PANEL_BG)
+
+        self.video_frame_ui = tk.LabelFrame(self.video_container,
+                                             text=" Video Dosyası ",
                                              bg=PANEL_BG, fg=TEXT_DIM, font=FONT_LABEL)
         self.video_frame_ui.pack(fill="x", padx=8, pady=4)
         self.video_path_var = tk.StringVar(value="Dosya seçilmedi")
@@ -117,10 +128,6 @@ class PanelsMixin:
         self._sec(p, "📐 KALİBRASYON")
         self._btn(p, "📏  Kalibrasyon (Nokta Seçimi)", self._start_combined_calib, WARNING)
         self._btn(p, "♟  Satranç Tahtası Kalibrasyonu",  self._checkerboard_calib)
-        cr = tk.Frame(p, bg=PANEL_BG)
-        cr.pack(fill="x", padx=8, pady=2)
-        self._bsm(cr, "💾 Kaydet", self._save_calibration)
-        self._bsm(cr, "📂 Yükle",  self._load_calibration)
         self.calib_lbl = tk.Label(p, text="Kalibrasyon yok", bg=PANEL_BG,
                                    fg=TEXT_DIM, font=FONT_MONO,
                                    wraplength=260, justify="left")
@@ -145,6 +152,7 @@ class PanelsMixin:
         self.canvas.bind("<Button-1>", self._on_click)
         self.canvas.bind("<Button-3>", self._on_rclick)
 
+        # ── Alt kontrol: kayıt + dışa aktarma ──────────────────────────
         ctrl = tk.Frame(parent, bg=ACCENT, height=36)
         ctrl.pack(fill="x", side="bottom")
         ctrl.pack_propagate(False)
@@ -152,17 +160,46 @@ class PanelsMixin:
                                   bg=HIGHLIGHT, fg="white", relief="flat",
                                   command=self._toggle_record)
         self.rec_btn.pack(side="left", padx=8, pady=4)
-        for txt, cmd in [("📸 Ekran Görüntüsü", self._screenshot),
-                         ("📊 Sonuç Grafiği",   self._show_plot),
-                         ("💾 Sonuçları Kaydet", self._export)]:
+        self.play_rec_btn = tk.Button(ctrl, text="▶ İzle", font=FONT_LABEL,
+                                       bg=ACCENT, fg=TEXT_LIGHT, relief="flat",
+                                       command=self._play_recording, state="disabled")
+        self.play_rec_btn.pack(side="left", padx=2, pady=4)
+        self.save_rec_btn = tk.Button(ctrl, text="💾 Videoyu Kaydet", font=FONT_LABEL,
+                                       bg=ACCENT, fg=TEXT_LIGHT, relief="flat",
+                                       command=self._save_recording, state="disabled")
+        self.save_rec_btn.pack(side="left", padx=2, pady=4)
+        for txt, cmd in [("📸 Görüntü", self._screenshot),
+                         ("📊 Grafik",   self._show_plot),
+                         ("💾 Sonuçlar", self._export)]:
             tk.Button(ctrl, text=txt, font=FONT_LABEL, bg=ACCENT, fg=TEXT_LIGHT,
-                      relief="flat", command=cmd).pack(side="left", padx=4, pady=4)
+                      relief="flat", command=cmd).pack(side="left", padx=2, pady=4)
         self.fps_lbl = tk.Label(ctrl, text="FPS: --", font=FONT_MONO,
                                  bg=ACCENT, fg=TEXT_DIM)
         self.fps_lbl.pack(side="right", padx=12)
         self.frame_lbl = tk.Label(ctrl, text="Kare: --", font=FONT_MONO,
                                    bg=ACCENT, fg=TEXT_DIM)
         self.frame_lbl.pack(side="right", padx=8)
+
+        # ── Oynatma kontrol çubuğu (İzle modunda görünür) ────────────
+        self.playback_bar = tk.Frame(parent, bg=ACCENT, height=36)
+        # Başlangıçta gizli — _play_recording açar
+        self.playback_bar.pack_propagate(False)
+        self.pb_play_btn = tk.Button(self.playback_bar, text="▶", font=FONT_LABEL,
+                                      bg=ACCENT, fg=TEXT_LIGHT, relief="flat", width=3,
+                                      command=self._pb_toggle_play)
+        self.pb_play_btn.pack(side="left", padx=4, pady=4)
+        self.pb_slider = tk.Scale(self.playback_bar, from_=0, to=100,
+                                   orient="horizontal", showvalue=False,
+                                   bg=ACCENT, fg=TEXT_LIGHT, troughcolor=HIGHLIGHT,
+                                   highlightthickness=0,
+                                   command=self._pb_on_seek)
+        self.pb_slider.pack(side="left", fill="x", expand=True, padx=4, pady=4)
+        self.pb_lbl = tk.Label(self.playback_bar, text="0 / 0", font=FONT_MONO,
+                                bg=ACCENT, fg=TEXT_DIM)
+        self.pb_lbl.pack(side="right", padx=8)
+        tk.Button(self.playback_bar, text="✕ Kapat", font=FONT_LABEL,
+                  bg=ACCENT, fg=TEXT_LIGHT, relief="flat",
+                  command=self._pb_close).pack(side="right", padx=4, pady=4)
 
     # ── Sağ panel ────────────────────────────────────────────────────────────
 
@@ -232,8 +269,11 @@ class PanelsMixin:
 
     def _on_src_change(self):
         if self.source_mode.get() == "live":
-            self.live_frame.pack(fill="x", padx=8, pady=4)
-            self.video_frame_ui.pack_forget()
+            self.video_container.pack_forget()
+            self.live_container.pack(fill="x")
         else:
-            self.live_frame.pack_forget()
-            self.video_frame_ui.pack(fill="x", padx=8, pady=4)
+            # Kamerayı durdur
+            if self.camera is not None and self.camera.is_open:
+                self._stop_live()
+            self.live_container.pack_forget()
+            self.video_container.pack(fill="x")

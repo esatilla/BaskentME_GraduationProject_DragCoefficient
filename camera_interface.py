@@ -38,6 +38,8 @@ class BaslerCamera:
         self.exposure_us = 1000
         self._frame_cb   = None     # callback(frame, timestamp) — grab thread'inde çağrılır
         self.grab_fps    = 0.0      # gerçek yakalama hızı
+        self._recorder   = None     # cv2.VideoWriter — ham kayıt
+        self._rec_count  = 0        # kaydedilen frame sayısı
 
     def open(self, device_index=0):
         # 1. pypylon import
@@ -90,7 +92,7 @@ class BaslerCamera:
             available = list(self.camera.PixelFormat.Symbolics)
         except Exception:
             return
-        for fmt in ["BGR8","RGB8","BayerRG8","BayerGB8","BayerBG8","Mono8"]:
+        for fmt in ["Mono8","BGR8","RGB8","BayerRG8","BayerGB8","BayerBG8"]:
             if fmt in available:
                 try:
                     self.camera.PixelFormat.SetValue(fmt)
@@ -166,6 +168,8 @@ class BaslerCamera:
         fps_count = 0
         fps_timer = time.time()
         has_cb = self._frame_cb is not None
+        display_interval = 1.0 / 30.0   # ekrana ~30 FPS yeter
+        last_display = 0.0
         while self._running:
             if not self.camera.IsGrabbing():
                 break
@@ -181,26 +185,46 @@ class BaslerCamera:
             ts = time.time()
             fps_count += 1
 
-            # Callback: raw array (BayerRG8 → tek kanal gray gibi)
+            # Raw array — tespit callback + ham kayıt için
+            try:
+                raw = gr.GetArray()
+            except Exception:
+                gr.Release(); continue
+
+            # Callback: HER frame için (tespit)
             if has_cb:
                 try:
-                    raw = gr.GetArray()          # (H, W) uint8 — BGR dönüşümü yok
                     self._frame_cb(raw, ts)
                 except Exception:
                     pass
 
-            # Ekran kuyruğu: BGR dönüşümü sadece burada
-            try:
-                frame = self._to_bgr(gr)
-            except Exception:
-                gr.Release(); continue
+            # Ham video kayıt — belleğe frame biriktir
+            if self._recorder is not None:
+                try:
+                    if raw.ndim == 2:
+                        self._rec_frames.append(
+                            cv2.cvtColor(raw, cv2.COLOR_GRAY2BGR))
+                    else:
+                        self._rec_frames.append(raw.copy())
+                    self._rec_count += 1
+                except Exception:
+                    pass
+
+            # Ekran kuyruğu: BGR dönüşümü sadece ~30 FPS
+            if ts - last_display >= display_interval:
+                last_display = ts
+                try:
+                    frame = self._to_bgr(gr)
+                except Exception:
+                    gr.Release(); continue
+                if frame is not None:
+                    while not self._queue.empty():
+                        try: self._queue.get_nowait()
+                        except queue.Empty: break
+                    try: self._queue.put_nowait((frame, ts))
+                    except queue.Full: pass
+
             gr.Release()
-            if frame is not None:
-                while not self._queue.empty():
-                    try: self._queue.get_nowait()
-                    except queue.Empty: break
-                try: self._queue.put_nowait((frame, ts))
-                except queue.Full: pass
 
             # Grab FPS
             el = time.time() - fps_timer
@@ -391,14 +415,15 @@ class BaslerCamera:
         except Exception: pass
         try: s['gain'] = self.camera.Gain.GetValue()
         except Exception: pass
-        try:
-            s['wb_auto'] = self.camera.BalanceWhiteAuto.GetValue()
-            wb = {}
-            for ch in ["Red", "Green", "Blue"]:
-                self.camera.BalanceRatioSelector.SetValue(ch)
-                wb[ch.lower()] = self.camera.BalanceRatio.GetValue()
-            s['wb'] = wb
-        except Exception: pass
+        if s.get('pixel_format') != 'Mono8':
+            try:
+                s['wb_auto'] = self.camera.BalanceWhiteAuto.GetValue()
+                wb = {}
+                for ch in ["Red", "Green", "Blue"]:
+                    self.camera.BalanceRatioSelector.SetValue(ch)
+                    wb[ch.lower()] = self.camera.BalanceRatio.GetValue()
+                s['wb'] = wb
+            except Exception: pass
         try: s['temperature'] = self.camera.DeviceTemperature.GetValue()
         except Exception: pass
         return s
@@ -414,7 +439,7 @@ class BaslerCamera:
         # Piksel formatı: 1 byte/piksel
         try:
             available = list(self.camera.PixelFormat.Symbolics)
-            for fmt in ["BayerRG8", "BayerGB8", "BayerBG8", "Mono8"]:
+            for fmt in ["Mono8", "BayerRG8", "BayerGB8", "BayerBG8"]:
                 if fmt in available:
                     self.camera.PixelFormat.SetValue(fmt)
                     msgs.append(f"Format: {fmt}")
@@ -447,8 +472,46 @@ class BaslerCamera:
             msgs.append(f"FPS hatasi: {e}")
         return msgs
 
+    # ── Ham video kayıt (belleğe) ───────────────────────────────────────────
+
+    def start_recording(self):
+        """Bellekte frame biriktirmeye başla."""
+        self._rec_frames = []
+        self._recorder = True
+        self._rec_count = 0
+
+    def stop_recording(self):
+        """Biriktirmeyi durdur. (frame listesi _rec_frames'te kalır.)"""
+        self._recorder = None
+        count = self._rec_count
+        self._rec_count = 0
+        return count
+
+    def get_recorded_frames(self):
+        """Kaydedilen frame listesini döndür ve temizle."""
+        frames = getattr(self, '_rec_frames', [])
+        self._rec_frames = []
+        return frames
+
+    def save_recording(self, filepath, fps=None):
+        """Bellekteki frameleri dosyaya yaz."""
+        frames = getattr(self, '_rec_frames', [])
+        if not frames:
+            return 0
+        if fps is None:
+            fps = self.grab_fps if self.grab_fps > 0 else 800.0
+        h, w = frames[0].shape[:2]
+        fourcc = (cv2.VideoWriter_fourcc(*'XVID') if filepath.endswith('.avi')
+                  else cv2.VideoWriter_fourcc(*'mp4v'))
+        writer = cv2.VideoWriter(filepath, fourcc, fps, (w, h))
+        for f in frames:
+            writer.write(f)
+        writer.release()
+        return len(frames)
+
     def stop(self):
         self._running = False
+        self.stop_recording()
         try:
             if self.camera and self.camera.IsGrabbing():
                 self.camera.StopGrabbing()

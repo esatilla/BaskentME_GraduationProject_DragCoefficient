@@ -133,14 +133,26 @@ class SettingsMixin:
                      font=FONT_MONO, anchor="w").pack(fill="x")
 
         # ── Ayar bölümleri (kaydırılabilir sol panele) ────────────────────────
-        for title, builder in [
+        # Mono8'de WB anlamsız — gizle
+        is_mono = False
+        if is_basler:
+            try:
+                is_mono = cam.camera.PixelFormat.GetValue() == "Mono8"
+            except Exception:
+                pass
+
+        sections = [
             ("⚡ HIZLI PRESETLER",    lambda: self._build_quick_presets_section(sf, cam, is_basler)),
             ("🔄 GÖRÜNTÜ DÖNDÜRME",  lambda: self._build_rotation_section(sf)),
             ("📐 ROI",                lambda: self._build_roi_section(sf, cam, is_basler)),
             ("⏱ FPS",                lambda: self._build_fps_section(sf, cam, is_basler)),
             ("📶 GAIN  (0 – 36 dB)", lambda: self._build_gain_section(sf, cam, is_basler)),
-            ("🎨 WHITE BALANCE",     lambda: self._build_wb_section(sf, cam, is_basler)),
-        ]:
+        ]
+        if not is_mono:
+            sections.append(
+                ("🎨 WHITE BALANCE", lambda: self._build_wb_section(sf, cam, is_basler)))
+
+        for title, builder in sections:
             self._settings_sec(sf, title)
             try:
                 builder()
@@ -653,10 +665,14 @@ class SettingsMixin:
             self._si_gain.set(f"Gain      : {g:.1f} dB  [{ga}]")
         except Exception: pass
         try:
-            wba = s.get('wb_auto', '--')
-            wb  = s.get('wb', {})
-            r = wb.get('red', 0); g = wb.get('green', 0); b = wb.get('blue', 0)
-            self._si_wb.set(f"WB        : [{wba}] R{r:.2f} G{g:.2f} B{b:.2f}")
+            fmt = s.get('pixel_format', '')
+            if fmt != 'Mono8':
+                wba = s.get('wb_auto', '--')
+                wb  = s.get('wb', {})
+                r = wb.get('red', 0); g = wb.get('green', 0); b = wb.get('blue', 0)
+                self._si_wb.set(f"WB        : [{wba}] R{r:.2f} G{g:.2f} B{b:.2f}")
+            else:
+                self._si_wb.set("WB        : N/A (Mono8)")
         except Exception: pass
         try:
             t = s.get('temperature', 0)
@@ -745,7 +761,7 @@ class SettingsMixin:
             available = list(cam.camera.PixelFormat.Symbolics)
             self._log(f"Preset: Desteklenen formatlar: {available}")
             fmt_set = None
-            for fmt in ["BayerRG8", "BayerGB8", "BayerBG8", "Mono8"]:
+            for fmt in ["Mono8", "BayerRG8", "BayerGB8", "BayerBG8"]:
                 if fmt in available:
                     cam.camera.PixelFormat.SetValue(fmt)
                     fmt_set = fmt

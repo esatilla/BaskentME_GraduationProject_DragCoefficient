@@ -3,15 +3,18 @@
 Baskent Üniversitesi Makine Mühendisliği ME491 bitirme projesi.
 Silindirik bir tüp içinde viskoz sıvıda düşen küresel parçacıkların terminal hızını ve sürükleme katsayısını (Cd) otomatik olarak ölçer.
 
+**GitHub:** https://github.com/esatilla/BaskentME_GraduationProject_DragCoefficient
+
 ---
 
 ## Proje Yapısı
 
 ```
 drag_tracker/
-├── main.py                      # __init__, mixin birleştirme, entry point (~90 satır)
+├── main.py                      # __init__, mixin birleştirme, entry point
 ├── camera_interface.py          # BaslerCamera / VideoFileSource / MockCamera
-├── tracker.py                   # CSRT + Kalman filtreli parçacık takibi
+├── detector.py                  # Silüet tabanlı nesne tespiti (threshold + centroid)
+├── tracker.py                   # CSRT + Kalman filtreli parçacık takibi (eski, kullanılmıyor)
 ├── physics.py                   # Hız, terminal hız, Cd, duvar düzeltmesi hesabı
 ├── calibration.py               # Lens distorsiyonu + silindirik refraksiyon kalibrasyonu
 ├── diagnose_camera.py           # Kamera bağlantı tanılama aracı
@@ -21,18 +24,34 @@ drag_tracker/
 │   ├── theme.py                 # Renk sabitleri ve font tanımları
 │   ├── widget_helpers.py        # _sec, _btn, _bsm, _ent, _slider (WidgetHelpersMixin)
 │   ├── panels.py                # _build_ui, _build_left/center/right (PanelsMixin)
-│   ├── video_loop_mixin.py      # _launch_loop, _video_loop, _show_frame (VideoLoopMixin)
-│   ├── source_mixin.py          # Kamera/video kaynak yönetimi (SourceMixin)
-│   ├── calibration_mixin.py     # Kalibrasyon UI + canvas tıklama (CalibrationMixin)
-│   ├── tracking_mixin.py        # Manuel ROI, otomatik tespit (TrackingMixin)
-│   ├── results_mixin.py         # Cd hesap, sonuç gösterimi, grafik (ResultsMixin)
-│   ├── export_mixin.py          # Video kayıt, ekran görüntüsü, CSV/JSON (ExportMixin)
-│   └── settings_mixin.py        # ROI/FPS/Gain/WB ayarları + canlı önizleme (SettingsMixin)
+│   ├── video_loop_mixin.py      # _launch_loop, _video_loop, _show_frame, grab callback (VideoLoopMixin)
+│   ├── source_mixin.py          # Kamera başlat/durdur toggle, canlı ROI değiştirme (SourceMixin)
+│   ├── calibration_mixin.py     # Birleşik kalibrasyon + zoom + otomatik kaydet/yükle (CalibrationMixin)
+│   ├── tracking_mixin.py        # Ölçüm başlat/durdur toggle, threshold ayarı (TrackingMixin)
+│   ├── results_mixin.py         # Cd hesap, terminal hız kontrolü, sonuç gösterimi (ResultsMixin)
+│   ├── export_mixin.py          # Belleğe kayıt, izle (ileri/geri/pause), dosyaya kaydet (ExportMixin)
+│   └── settings_mixin.py        # ROI/FPS/Gain ayarları, Mono8'de WB gizli (SettingsMixin)
 │
-├── requirements.txt             # Bağımlılıklar
-├── run.bat                      # Venv ile başlatma scripti (Windows)
-└── venv/                        # Python sanal ortamı (Python 3.14)
+├── pyproject.toml               # uv bağımlılık yönetimi
+├── uv.lock                      # Kilitleme dosyası
+├── requirements.txt             # Eski pip bağımlılıkları (referans)
+├── run.bat                      # uv run ile başlatma (Windows)
+├── calibration_auto.json        # Otomatik kalibrasyon (gitignore'da)
+├── basler.md                    # Kamera donanım referans kılavuzu
+├── optik.md                     # Lens/sensör optik hesapları
+└── README.md                    # Kullanım kılavuzu
 ```
+
+---
+
+## Paket Yönetimi — uv
+
+```bash
+uv sync                        # bağımlılıkları kur (.venv/ oluşturur)
+uv run python main.py           # uygulamayı çalıştır
+```
+
+Veya Windows'ta: `run.bat` çift tıkla.
 
 ---
 
@@ -42,121 +61,80 @@ drag_tracker/
 
 ```python
 class DragCoefficientApp(
-    WidgetHelpersMixin,
-    PanelsMixin,
-    VideoLoopMixin,
-    SourceMixin,
-    CalibrationMixin,
-    TrackingMixin,
-    ResultsMixin,
-    ExportMixin,
-    SettingsMixin,
+    WidgetHelpersMixin, PanelsMixin, VideoLoopMixin, SourceMixin,
+    CalibrationMixin, TrackingMixin, ResultsMixin, ExportMixin, SettingsMixin,
 ):
 ```
 
-Her mixin `self.root`, `self.calibrator`, `self.tracker` gibi `__init__`'te tanımlanan
-instance değişkenlerine doğrudan erişir. Mixin'ler arası bağımlılık yoktur.
+Her mixin `self.root`, `self.calibrator`, `self.detector` gibi `__init__`'te tanımlanan
+instance değişkenlerine doğrudan erişir.
 
 ---
 
-## Venv ile Çalıştırma
+## Kritik Mimari Kararlar
 
-```bat
-run.bat
-```
+### Piksel Formatı: Mono8
+Kamera Mono8 (gri, 1 byte/piksel) kullanır. BGR dönüşümü gereksiz, bant genişliği minimum.
+Mono8'de White Balance anlamsız — ayarlar panelinde WB bölümü gizlenir.
 
-Veya manuel:
+### 800 FPS Deney Modu
+- Grab callback (`_on_grab_frame`): raw Mono8 array → `detect_fast()` (morfolojisiz, döndürmesiz)
+- Koordinat dönüşümü ile 90°CW rotasyon simüle edilir (döndürme 0.6ms, bütçe 1.25ms — döndürme atlanır)
+- BGR dönüşümü sadece ~30 FPS ekran için yapılır (grab loop'ta throttle)
+- ROI yüksekliği ile FPS ilişkisi: 270px→~620 FPS, 200px→~790 FPS, 150px→800 FPS
 
-```bat
-venv\Scripts\activate
-python main.py
-```
+### GENICAM_GENTL64_PATH Düzeltmesi
+Sistemde Pylon SDK kuruluysa `GENICAM_GENTL64_PATH` ortam değişkeni sistem DLL'lerine
+işaret eder — pypylon ile çakışıp segfault verir. `camera_interface.py` başında
+pypylon paket dizinine yönlendirilir. **Bu düzeltme olmadan VS Code'dan çalıştırma crash eder.**
+
+### Kalibrasyon Otomatik Kayıt
+Kalibrasyon yapıldığında `calibration_auto.json`'a otomatik kaydedilir.
+Uygulama açılışında `_auto_load_calib()` ile otomatik yüklenir.
+Manuel kaydet/yükle butonları kaldırılmıştır.
+
+### Terminal Hız Kontrolü
+`detect_terminal_velocity()` stabil bölge bulamazsa `None` döner (fallback kaldırıldı).
+Cd hesabı terminal hız olmadan yapılmaz — "Terminal hıza ulaşılamadı" uyarısı verir.
+
+### Video Kayıt Akışı
+Kayıt → belleğe frame biriktir → Durdur → İzle (slider ile ileri/geri, play/pause) → Dosyaya Kaydet.
+Grab loop'ta HER frame belleğe yazılır (tam FPS). İzleme modunda bellekten oynatılır.
 
 ---
 
-## Modüller
+## UI Buton Davranışları
 
-### main.py — Orkestrasyon
-- `DragCoefficientApp.__init__()`: tüm state değişkenleri, mixin birleştirme
-- `_on_close()`: temiz kapanma (kamera, video, kayıt serbest bırakma)
-
-### camera_interface.py — Kamera Arayüzü
-- `BaslerCamera`: pypylon ile Basler acA1440-220uc USB kamerası
-- `VideoFileSource`: OpenCV ile MP4/AVI/MOV/MKV oynatma
-- `MockCamera`: Gerçek kamera olmadan test için simülasyon
-
-### Donanım Özellikleri
-
-**Kamera: Basler acA1440-220uc**
-| Özellik | Değer |
+| Buton | Davranış |
 |---|---|
-| Sensör | Sony IMX273 (1/2.9") |
-| Çözünürlük | 1440 × 1080 px |
-| Piksel boyutu | 3.45 µm |
-| Sensör boyutu | 4.968 mm × 3.726 mm |
-| Arayüz | USB 3.0 |
-| Maks. kare hızı | 220 fps |
+| Kamerayı Başlat | Toggle: Başlat ↔ Durdur (yeşil ↔ kırmızı) |
+| Ölçümü Başlat | Toggle: Başlat ↔ Durdur |
+| ROI (270/220/180/150) | Kamera açıkken canlı ROI değiştirir (grab durdur/ayarla/başlat) |
+| Kaynak: Video Dosyası | Kamerayı otomatik durdurur |
+| ⏺ Kayıt | Belleğe frame biriktirmeye başlar |
+| ▶ İzle | Playback bar açılır (slider, play/pause, frame sayacı) |
+| 💾 Videoyu Kaydet | Bellekten dosyaya yazar |
 
-**Lens: Computar C125-1218-5M**
-| Özellik | Değer |
-|---|---|
-| Odak uzaklığı | 12 mm |
-| Maksimum diyafram | F1.8 |
-| Format | 1/2" C-mount |
-| Çözünürlük | 5 MP |
+---
 
-**Kurulum Geometrisi (kamera 90° yan)**
+## Donanım
 
-Kamera dik çevrilince 1440-piksel ekseni dikey yönü, 1080-piksel ekseni yatay yönü kapsar.
+**Kamera: Basler acA1440-220uc** — USB 3.0, Sony IMX273, 1440×1080, Mono8
+**Lens: Computar C125-1218-5M** — 12mm, F1.8, C-mount
+**Çalışma mesafesi:** ~146 cm → 60cm dikey FOV, 0.42 mm/piksel
+**ROI:** 1440×270 (varsayılan), merkez OffsetY sensörden dinamik hesaplanır: `((sensor_h - h) // 2 // 2) * 2`
 
-1 metre yüksekliğindeki nesneyi tam görmek için gereken mesafe:
+---
 
-```
-m = sensör_yükseklik / nesne_yükseklik = 4.968 mm / 1000 mm = 0.004968
-d_nesne = f × (1 + 1/m) = 12 × (1 + 1000/4.968) ≈ 2428 mm ≈ 243 cm
-```
+## Tespit Algoritması
 
-| Parametre | Değer |
-|---|---|
-| **Önerilen çalışma mesafesi** | **~146 cm** (60 cm orta bölge, yüksek çözünürlük) |
-| Dikey görüş alanı (1440 px) | 600 mm = 60 cm |
-| Yatay görüş alanı (1080 px) | ~450 mm = 45 cm |
-| Piksel çözünürlüğü | **~0.42 mm/piksel** |
-| *(Referans) 243 cm mesafe* | *1 m tam frame, 0.69 mm/piksel* |
+Parlak arka plan (backlit) — karanlık nesne (silüet):
+1. Threshold: `gray < threshold` → binary mask (morfoloji yok, hız için)
+2. findContours → en büyük blob
+3. moments → centroid (ağırlık merkezi)
+4. Koordinat dönüşümü (90°CW): `new_cx = h-1-cy, new_cy = cx`
 
-> Hedef: 1 m'lik tüpün ortasındaki 60 cm'lik aktif düşüş bölgesini izlemek.
-> Detaylı optik hesap için bkz. [optik.md](optik.md).
-
-### tracker.py — Parçacık Takibi
-- `ParticleTracker` sınıfı
-- Otomatik tespit: MOG2 + dairesellik skoru
-- Takip: OpenCV CSRT + 4-durumlu Kalman filtresi [x, y, vx, vy]
-
-### physics.py — Fizik Hesapları
-- `calculate_instantaneous_velocity()` — sonlu farklar ile piksel→mm/s
-- `detect_terminal_velocity()` — kayan pencere stabilite analizi
-- `apply_wall_correction()` — Francis/Ladenburg duvar etkisi (λ = d_p / d_cyl)
-- `calculate_drag_coefficient()` — kuvvet dengesi, Re, Stokes/Schiller-Naumann karşılaştırması
-
-**Cd formülü:**
-```
-Cd = (4/3) × (d / v²) × ((ρ_p - ρ_f) / ρ_f) × g
-Re = ρ_f × v × d / μ
-```
-
-**Akış rejimleri:**
-| Re | Rejim |
-|---|---|
-| < 0.5 | Stokes |
-| 0.5 – 2 | Alt geçiş |
-| 2 – 500 | Ara |
-| 500 – 2×10⁵ | Newton |
-| > 2×10⁵ | Türbülanslı |
-
-### calibration.py — Kalibrasyon
-- Checkerboard: OpenCV lens distorsiyonu
-- 2 nokta tıklamayla piksel/mm ölçek
-- Silindirik refraksiyon: 3. derece polinom
+Parlaklık eşiği slider ile ayarlanabilir (10–250).
 
 ---
 
@@ -164,7 +142,7 @@ Re = ρ_f × v × d / μ
 
 | Paket | Kullanım |
 |---|---|
-| opencv-python | Kamera, tracker, görüntü işleme |
+| opencv-python | Kamera, tespit, görüntü işleme |
 | numpy | Vektörel hesaplar |
 | scipy | Smoothing, interpolasyon |
 | Pillow | Tkinter görüntü dönüşümü |
@@ -173,34 +151,13 @@ Re = ρ_f × v × d / μ
 
 ---
 
-## Görev Yürütme Kuralları
-
-Yeni bir görev geldiğinde şu sırayı uygula:
-
-1. **Planla** — Hangi dosyalar etkilenecek? Hangi bağımlılıklar var? Adımları listele.
-2. **Paralel yürüt** — Bağımsız dosya yazımları / araştırmalar aynı anda çalıştırılır.
-3. **Subagent kullan** — Büyük keşif veya araştırma görevlerini `Explore` ya da `general-purpose`
-   subagent'e delege et; ana context'i şişirme.
-4. **Test et** — Sözdizimi kontrolü (`python -c "import ..."`) her yeni modülden sonra.
-5. **CLAUDE.md güncelle** — Güncelleme Geçmişi tablosuna satır ekle.
-
-**Ne zaman subagent aç:**
-- Yeni bir kütüphane / API araştırması (pypylon, OpenCV, vs.)
-- Birden fazla dosyayı etkileyen kapsamlı yeniden yapılandırma
-- Kodun büyük bölümünü okuyup analiz etmek gerektiğinde
-
-**Ne zaman paralel araç çağrısı yap:**
-- Birbirinden bağımsız dosya yazımları (aynı mesajda birden fazla `Write`)
-- Bağımsız doğrulama adımları
-
----
-
 ## Geliştirme Notları
 
-- Gerçek Basler kamera yoksa `MockCamera` simülasyonu kullanılabilir
-- Yeni özellik eklerken uygun mixin'e ekle; `main.py`'ye dokunma
+- Yeni özellik eklerken uygun mixin'e ekle; `main.py`'ye mümkünse dokunma
 - Tüm UI güncellemeleri `root.after(0, callback)` ile yapılmalıdır (thread safety)
-- `diagnose_camera.py` kamera bağlantı sorunlarını tanılamak için ayrıca çalıştırılabilir
+- Grab callback'te ağır işlem yapma (bütçe: <1ms/frame)
+- ROI OffsetY ve Height her zaman çift sayı olmalı (kamera inc=2 gerektiriyor)
+- Mono8'de WB ayarları çalışmaz — pypylon exception verir, `except` yakalar
 
 ---
 
@@ -208,16 +165,21 @@ Yeni bir görev geldiğinde şu sırayı uygula:
 
 | Tarih | Değişiklik |
 |---|---|
-| 2026-04-12 | venv kurulumu, main.py → ui/ mixin mimarisine bölündü |
-| 2026-04-12 | basler.md oluşturuldu — ROI/FPS/Gain/WB gerçek değerleri ve pypylon kodları |
-| 2026-04-12 | settings_mixin.py eklendi — Gelişmiş Kamera Ayarları penceresi + canlı önizleme |
-| 2026-04-12 | settings_mixin.py güncellendi — ROI preset butonları, anlık FPS tahmini, otomatik ResultingFPS yenileme |
-| 2026-04-12 | Görüntü döndürme eklendi — settings_mixin + video_loop_mixin; 0°/90°CW/180°/90°CCW, undistort sonrası takip öncesi |
-| 2026-04-12 | Donanım özellikleri eklendi — acA1440-220uc sensör tablosu, C125-1218-5M lens, 243 cm çalışma mesafesi hesabı |
-| 2026-04-12 | Çalışma mesafesi 146 cm olarak güncellendi — hedef 60 cm orta bölge, 0.42 mm/px; optik.md oluşturuldu |
-| 2026-04-12 | settings_mixin.py düzeltildi — `selectforeground` hatası (Python 3.14 uyumsuzluğu) kaldırıldı; tüm bölümler try/except ile korundu |
-| 2026-04-12 | WB "Bir Kez" polling eklendi — otomatik ayar bitince sliderlar yeni değere güncellenir; "Sürekli" modda sliderlar kilitli kalır |
-| 2026-04-12 | 800 FPS preset düzeltildi — BayerRG8 piksel formatı eklendi (BGR8→1byte/px); set_roi'ye pixel_format parametresi eklendi |
-| 2026-04-12 | Ana menüden FPS slider kaldırıldı — sadece Gelişmiş Ayarlar'da; settings preview ROI overlay düzeltildi (kamera koordinatlarıyla dikdörtgen → metin etiketi) |
-| 2026-04-12 | Simülasyon modu kaldırıldı (panels/source_mixin/main); Deney Modu preseti FPS slider'ını da 800'e günceller |
-| 2026-04-12 | Uygulama deney modunda açılır — rotation_code=1 (90°CW), kamera başlayınca configure_experiment_mode() otomatik çağrılır (BayerRG8+ROI+800FPS) |
+| 2026-04-12 | İlk kurulum: venv, mixin mimarisi, basler.md, optik.md |
+| 2026-04-12 | settings_mixin: ROI/FPS/Gain/WB, 800 FPS preset, döndürme |
+| 2026-04-12 | Deney modu: BayerRG8 + HW ROI + 800 FPS, otomatik configure |
+| 2026-04-15 | Crash fix: _grab_loop exception handling, GENICAM_GENTL64_PATH düzeltmesi |
+| 2026-04-15 | 800 FPS optimizasyon: grab callback + detect_fast (morfolojisiz, döndürmesiz) |
+| 2026-04-15 | ROI OffsetY dinamik merkez hesabı (sensörden), preset tutarlılığı |
+| 2026-04-15 | Kamera başlat/durdur toggle, kaynak değişiminde otomatik kamera durdurma |
+| 2026-04-15 | Birleşik kalibrasyon (ölçek+kırılma), zoom ile hassas nokta seçimi |
+| 2026-04-15 | Kalibrasyon otomatik kaydet/yükle (calibration_auto.json) |
+| 2026-04-15 | Terminal hız fallback kaldırıldı — Cd hesabı sadece stabil hız varken |
+| 2026-04-15 | Ölçüm başlat/durdur toggle, parlaklık eşiği slider |
+| 2026-04-15 | Canlı ROI değiştirme butonları (270/220/180/150), kamera açıkken geçerli |
+| 2026-04-15 | Mono8 piksel formatı, WB Mono8'de gizli, Gain "Bir Kez" polling |
+| 2026-04-15 | BGR dönüşümü grab loop'ta throttle (~30 FPS), raw callback her frame |
+| 2026-04-15 | uv paket yönetimi, pyproject.toml, GitHub push |
+| 2026-04-15 | Video kayıt: belleğe biriktir → İzle (slider ileri/geri, play/pause) → Kaydet |
+| 2026-04-15 | UI: container tabanlı kaynak paneli (pack sıralama düzeltmesi) |
+| 2026-04-15 | Geçmiş denemeler: yatay scrollbar |
