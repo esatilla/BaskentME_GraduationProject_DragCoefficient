@@ -31,7 +31,7 @@ class ExportMixin:
         if cam is None or not cam.is_open:
             messagebox.showwarning("Uyarı", "Kamera aktif değil.")
             return
-        cam.start_recording()
+        cam.start_recording(rotation_code=self.rotation_code.get())
         self.is_recording = True
         self.rec_btn.configure(text="⏹  Durdur", bg="#cc0000")
         self.play_rec_btn.configure(state="disabled")

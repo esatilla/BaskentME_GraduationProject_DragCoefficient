@@ -71,6 +71,10 @@ class SourceMixin:
                 # Grab callback: her frame'de tespit
                 cam.set_frame_callback(self._on_grab_frame)
 
+                # Otomatik gain ayarı (bir kez)
+                cam.set_gain_auto("Once")
+                self.root.after(0, self._log, "Otomatik gain ayarlanıyor…")
+
             cam.start_capture()
             self.root.after(0, self._log, msg)
             self.root.after(0, self._on_camera_ready)

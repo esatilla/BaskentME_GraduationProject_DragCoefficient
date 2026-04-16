@@ -40,6 +40,7 @@ class BaslerCamera:
         self.grab_fps    = 0.0      # gerçek yakalama hızı
         self._recorder   = None     # cv2.VideoWriter — ham kayıt
         self._rec_count  = 0        # kaydedilen frame sayısı
+        self._rec_rotate = -1       # kayıt döndürme kodu (-1=yok, 0/1/2=cv2 kodu)
 
     def open(self, device_index=0):
         # 1. pypylon import
@@ -198,14 +199,14 @@ class BaslerCamera:
                 except Exception:
                     pass
 
-            # Ham video kayıt — belleğe frame biriktir
+            # Ham video kayıt — belleğe frame biriktir (döndürülmüş)
             if self._recorder is not None:
                 try:
-                    if raw.ndim == 2:
-                        self._rec_frames.append(
-                            cv2.cvtColor(raw, cv2.COLOR_GRAY2BGR))
-                    else:
-                        self._rec_frames.append(raw.copy())
+                    f = cv2.cvtColor(raw, cv2.COLOR_GRAY2BGR) if raw.ndim == 2 else raw.copy()
+                    rc = self._rec_rotate
+                    if rc >= 0:
+                        f = cv2.rotate(f, rc)
+                    self._rec_frames.append(f)
                     self._rec_count += 1
                 except Exception:
                     pass
@@ -474,11 +475,17 @@ class BaslerCamera:
 
     # ── Ham video kayıt (belleğe) ───────────────────────────────────────────
 
-    def start_recording(self):
-        """Bellekte frame biriktirmeye başla."""
+    def start_recording(self, rotation_code=0):
+        """Bellekte frame biriktirmeye başla.
+        rotation_code: 0=yok, 1=90°CW, 2=180°, 3=90°CCW
+        """
         self._rec_frames = []
         self._recorder = True
         self._rec_count = 0
+        _cv2_rot = {1: cv2.ROTATE_90_CLOCKWISE,
+                    2: cv2.ROTATE_180,
+                    3: cv2.ROTATE_90_COUNTERCLOCKWISE}
+        self._rec_rotate = _cv2_rot.get(rotation_code, -1)
 
     def stop_recording(self):
         """Biriktirmeyi durdur. (frame listesi _rec_frames'te kalır.)"""

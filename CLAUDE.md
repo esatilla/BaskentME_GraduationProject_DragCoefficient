@@ -183,3 +183,5 @@ Parlaklık eşiği slider ile ayarlanabilir (10–250).
 | 2026-04-15 | Video kayıt: belleğe biriktir → İzle (slider ileri/geri, play/pause) → Kaydet |
 | 2026-04-15 | UI: container tabanlı kaynak paneli (pack sıralama düzeltmesi) |
 | 2026-04-15 | Geçmiş denemeler: yatay scrollbar |
+| 2026-04-16 | Video kayıt döndürme: kaydedilen video ekran açısında (rotation_code) |
+| 2026-04-16 | Kamera başlangıçta otomatik gain ayarı (GainAuto=Once) |
