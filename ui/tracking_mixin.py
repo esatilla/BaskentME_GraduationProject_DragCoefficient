@@ -21,6 +21,19 @@ class TrackingMixin:
             n = len(self.detector.positions)
             self._log(f"Ölçüm durduruldu — {n} nokta kaydedildi.")
         else:
+            # Parametre kontrolü
+            missing = []
+            if not self._fluid_selected:
+                missing.append("Sıvı seçilmedi")
+            if not self._material_selected:
+                missing.append("Cisim malzemesi seçilmedi")
+            if not self._diameter_selected:
+                missing.append("Cisim çapı seçilmedi")
+            if missing:
+                messagebox.showwarning("Eksik Parametre",
+                                       "\n".join(missing))
+                return
+
             # Başlat
             self.detector.reset()
             self.detector.is_active = True

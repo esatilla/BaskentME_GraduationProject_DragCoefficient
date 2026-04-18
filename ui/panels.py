@@ -133,6 +133,77 @@ class PanelsMixin:
                                    wraplength=260, justify="left")
         self.calib_lbl.pack(padx=8, pady=4, anchor="w")
 
+        # ── Deney parametreleri ──────────────────────────────────────────
+        self._sec(p, "🧪 DENEY PARAMETRELERİ")
+
+        # Sıvı seçimi
+        tk.Label(p, text="Sıvı:", bg=PANEL_BG, fg=TEXT_DIM,
+                 font=FONT_LABEL).pack(anchor="w", padx=8, pady=(4, 0))
+        fluid_row = tk.Frame(p, bg=PANEL_BG)
+        fluid_row.pack(fill="x", padx=8, pady=2)
+        fluids = [
+            ("Mısır Şurubu", 1380.0, 5.0),
+            ("Gliserin",     1260.0, 1.41),
+            ("Su",            998.0, 0.001),
+        ]
+        for name, rho, mu in fluids:
+            tk.Button(fluid_row, text=name, font=("Segoe UI", 8),
+                      bg=ACCENT, fg=TEXT_LIGHT, relief="flat",
+                      command=lambda r=rho, m=mu, n=name: self._set_fluid(r, m, n)
+                      ).pack(side="left", padx=2)
+
+        self._ent(p, "Yoğunluk (kg/m³):", self.fluid_density)
+        self._ent(p, "Viskozite (Pa·s):", self.fluid_viscosity)
+
+        # Cisim malzemesi
+        tk.Label(p, text="Cisim:", bg=PANEL_BG, fg=TEXT_DIM,
+                 font=FONT_LABEL).pack(anchor="w", padx=8, pady=(4, 0))
+        mat_row = tk.Frame(p, bg=PANEL_BG)
+        mat_row.pack(fill="x", padx=8, pady=2)
+        materials = [
+            ("Pirinç",    8500.0),
+            ("Cam",       2500.0),
+            ("Alüminyum", 2700.0),
+            ("Çelik",     7800.0),
+        ]
+        for name, rho in materials:
+            tk.Button(mat_row, text=name, font=("Segoe UI", 8),
+                      bg=ACCENT, fg=TEXT_LIGHT, relief="flat",
+                      command=lambda r=rho, n=name: self._set_material(r, n)
+                      ).pack(side="left", padx=2)
+
+        self._ent(p, "Yoğunluk (kg/m³):", self.particle_density)
+
+        # Cisim çapı
+        dia_row = tk.Frame(p, bg=PANEL_BG)
+        dia_row.pack(fill="x", padx=8, pady=2)
+        tk.Label(dia_row, text="Çap:", width=4, anchor="w",
+                 bg=PANEL_BG, fg=TEXT_DIM, font=FONT_LABEL).pack(side="left")
+        for d in [1, 2, 3, 4, 5, 6]:
+            tk.Button(dia_row, text=f"{d}", font=("Segoe UI", 8),
+                      bg=ACCENT, fg=TEXT_LIGHT, relief="flat", width=2,
+                      command=lambda dd=d: self._set_diameter(dd)
+                      ).pack(side="left", padx=1)
+        tk.Label(dia_row, text="mm", bg=PANEL_BG, fg=TEXT_DIM,
+                 font=FONT_LABEL).pack(side="left", padx=2)
+
+        # Boru iç çapı
+        pipe_row = tk.Frame(p, bg=PANEL_BG)
+        pipe_row.pack(fill="x", padx=8, pady=2)
+        tk.Label(pipe_row, text="Boru iç Ø:", width=9, anchor="w",
+                 bg=PANEL_BG, fg=TEXT_DIM, font=FONT_LABEL).pack(side="left")
+        for d in [45, 95]:
+            tk.Button(pipe_row, text=f"{d}mm", font=("Segoe UI", 8),
+                      bg=ACCENT, fg=TEXT_LIGHT, relief="flat",
+                      command=lambda dd=d: self._set_pipe(dd)
+                      ).pack(side="left", padx=2)
+
+        tk.Checkbutton(p, text="Duvar düzeltmesi uygula",
+                       variable=self.apply_wall_corr,
+                       bg=PANEL_BG, fg=TEXT_LIGHT, selectcolor=ACCENT,
+                       activebackground=PANEL_BG, font=FONT_LABEL
+                       ).pack(anchor="w", padx=8, pady=2)
+
         # Takip
         self._sec(p, "🎯 TAKİP")
         self._slider(p, "Parlaklık Eşiği:", self.detect_threshold, 10, 250,
@@ -215,6 +286,7 @@ class PanelsMixin:
         self.log_text.pack(fill="x")
         ls.config(command=self.log_text.yview)
 
+        # ── Hesaplama sonuçları ──────────────────────────────────────────
         self._sec(parent, "📊 HESAPLAMA SONUÇLARI")
         self.rl = {}
         for label, key, unit in [

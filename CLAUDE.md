@@ -185,3 +185,8 @@ Parlaklık eşiği slider ile ayarlanabilir (10–250).
 | 2026-04-15 | Geçmiş denemeler: yatay scrollbar |
 | 2026-04-16 | Video kayıt döndürme: kaydedilen video ekran açısında (rotation_code) |
 | 2026-04-16 | Kamera başlangıçta otomatik gain ayarı (GainAuto=Once) |
+| 2026-04-17 | sunum.md eklendi — bitirme sunumu için detaylı referans dokümanı |
+| 2026-04-18 | Deney parametreleri sol panele taşındı — sıvı/cisim/boru preset butonları |
+| 2026-04-18 | Sıvılar: Mısır Şurubu, Gliserin, Su; Malzemeler: Pirinç, Cam, Alüminyum, Çelik |
+| 2026-04-18 | Cisim çapı butonları: 1–6 mm; Boru iç çapı: Ø45, Ø95 mm |
+| 2026-04-18 | Ölçüm başlatma kontrolü: sıvı/malzeme/çap seçilmeden ölçüm başlatılamaz |

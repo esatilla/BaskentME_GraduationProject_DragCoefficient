@@ -61,13 +61,16 @@ class DragCoefficientApp(
         self._calib_mode  = "idle"
         self.calib_points = []
 
-        # Deney parametreleri
-        self.particle_diameter = tk.DoubleVar(value=5.0)
-        self.particle_density  = tk.DoubleVar(value=7800.0)
-        self.fluid_density     = tk.DoubleVar(value=1260.0)
-        self.fluid_viscosity   = tk.DoubleVar(value=1.41)
-        self.cylinder_diameter = tk.DoubleVar(value=50.0)
+        # Deney parametreleri (varsayılan 0 = seçilmedi)
+        self.particle_diameter = tk.DoubleVar(value=0.0)
+        self.particle_density  = tk.DoubleVar(value=0.0)
+        self.fluid_density     = tk.DoubleVar(value=0.0)
+        self.fluid_viscosity   = tk.DoubleVar(value=0.0)
+        self.cylinder_diameter = tk.DoubleVar(value=45.0)
         self.apply_wall_corr   = tk.BooleanVar(value=True)
+        self._fluid_selected    = False
+        self._material_selected = False
+        self._diameter_selected = False
 
         # Görüntü döndürme — varsayılan: 90°CW (deney modu)
         self.rotation_code = tk.IntVar(value=1)

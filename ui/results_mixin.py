@@ -114,6 +114,28 @@ class ResultsMixin:
         self.hist.delete(0, tk.END)
         self._log("Geçmiş temizlendi.")
 
+    # ── Deney parametresi preset'leri ────────────────────────────────────────
+
+    def _set_fluid(self, rho, mu, name):
+        self.fluid_density.set(rho)
+        self.fluid_viscosity.set(mu)
+        self._fluid_selected = True
+        self._log(f"Sıvı: {name}  (ρ={rho} kg/m³, μ={mu} Pa·s)")
+
+    def _set_material(self, rho, name):
+        self.particle_density.set(rho)
+        self._material_selected = True
+        self._log(f"Cisim: {name}  (ρ={rho} kg/m³)")
+
+    def _set_diameter(self, d):
+        self.particle_diameter.set(float(d))
+        self._diameter_selected = True
+        self._log(f"Cisim çapı: {d} mm")
+
+    def _set_pipe(self, d):
+        self.cylinder_diameter.set(float(d))
+        self._log(f"Boru iç çapı: {d} mm")
+
     # ── Mini hız grafiği (mesafe–hız) ────────────────────────────────────────
 
     def _draw_vel(self, dists_cm, vels):
