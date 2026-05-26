@@ -204,7 +204,7 @@ class RefractionCalibrator:
             'scale_calibrated': self.scale_calibrated,
             'is_calibrated': self.is_calibrated,
             'calibration_info': self.calibration_info,
-            'refraction_poly': getattr(self, 'refraction_poly', np.array([])).tolist() if hasattr(self, 'refraction_poly') else None
+            'refraction_poly': getattr(self, 'refraction_poly', np.array([])).tolist() if hasattr(self, 'refraction_poly') else None,
         }
         with open(filepath, 'w') as f:
             json.dump(data, f, indent=2)

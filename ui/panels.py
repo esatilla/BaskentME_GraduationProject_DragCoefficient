@@ -136,15 +136,26 @@ class PanelsMixin:
         # ── Deney parametreleri ──────────────────────────────────────────
         self._sec(p, "🧪 DENEY PARAMETRELERİ")
 
+        # Sıcaklık seçimi
+        temp_row = tk.Frame(p, bg=PANEL_BG)
+        temp_row.pack(fill="x", padx=8, pady=2)
+        tk.Label(temp_row, text="Sıcaklık:", width=8, anchor="w",
+                 bg=PANEL_BG, fg=TEXT_DIM, font=FONT_LABEL).pack(side="left")
+        for t in [15, 20, 25, 30]:
+            tk.Button(temp_row, text=f"{t}°C", font=("Segoe UI", 8),
+                      bg=ACCENT, fg=TEXT_LIGHT, relief="flat",
+                      command=lambda tt=t: self._set_temp(tt)
+                      ).pack(side="left", padx=2)
+
         # Sıvı seçimi
         tk.Label(p, text="Sıvı:", bg=PANEL_BG, fg=TEXT_DIM,
                  font=FONT_LABEL).pack(anchor="w", padx=8, pady=(4, 0))
         fluid_row = tk.Frame(p, bg=PANEL_BG)
         fluid_row.pack(fill="x", padx=8, pady=2)
         fluids = [
-            ("Mısır Şurubu", 1380.0, 5.0),
-            ("Gliserin",     1260.0, 1.41),
-            ("Su",            998.0, 0.001),
+            ("Mısır Şurubu", 1380.0, 4.0),
+            ("Gliserin",     1258.0, 0.934),
+            ("Su",            997.0, 0.000891),
         ]
         for name, rho, mu in fluids:
             tk.Button(fluid_row, text=name, font=("Segoe UI", 8),
@@ -164,7 +175,7 @@ class PanelsMixin:
             ("Pirinç",    8500.0),
             ("Cam",       2500.0),
             ("Alüminyum", 2700.0),
-            ("Çelik",     7800.0),
+            ("Çelik",     7830.0),
         ]
         for name, rho in materials:
             tk.Button(mat_row, text=name, font=("Segoe UI", 8),
@@ -208,6 +219,17 @@ class PanelsMixin:
         self._sec(p, "🎯 TAKİP")
         self._slider(p, "Parlaklık Eşiği:", self.detect_threshold, 10, 250,
                      lambda v: self._set_threshold(int(float(v))))
+        self._slider(p, "Min Alan (px²):", self.detect_min_area, 1, 500,
+                     lambda v: self._set_min_area(int(float(v))))
+        rect_row = tk.Frame(p, bg=PANEL_BG)
+        rect_row.pack(fill="x", padx=8, pady=2)
+        tk.Button(rect_row, text="▣ Bölge Seç", font=FONT_LABEL,
+                  bg=WARNING, fg=DARK_BG, relief="flat", cursor="hand2",
+                  command=self._start_rect_select).pack(side="left", fill="x", expand=True, padx=(0, 2))
+        tk.Button(rect_row, text="✕ Kaldır", font=FONT_LABEL,
+                  bg=ACCENT, fg=TEXT_LIGHT, relief="flat", cursor="hand2",
+                  command=self._clear_rect).pack(side="left")
+
         self.measure_btn = tk.Button(
             p, text="▶  Ölçümü Başlat", command=self._toggle_measurement,
             font=FONT_LABEL, bg=SUCCESS, fg="white", relief="flat",
@@ -321,6 +343,7 @@ class PanelsMixin:
         self.vel_cv.pack(fill="x", padx=5, pady=4)
 
         self._btn(parent, "🧮  C_d Hesapla",     self._calculate_cd, SUCCESS)
+        self._btn(parent, "📈  Regresyon Grafiği", self._open_regression)
         self._btn(parent, "🗑  Geçmişi Temizle", self._clear_history, HIGHLIGHT)
 
         self._sec(parent, "📁 GEÇMİŞ DENEMELER")

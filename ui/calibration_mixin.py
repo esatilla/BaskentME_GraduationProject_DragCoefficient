@@ -185,10 +185,13 @@ class CalibrationMixin:
 
     def _on_click(self, ev):
         fx, fy = self._cv2fr(ev.x, ev.y)
-        m = self._calib_mode
 
+        if self._rect_select_step > 0:
+            self._on_rect_click(fx, fy)
+            return
+
+        m = self._calib_mode
         if m == "combined":
-            # Zoom penceresi aç — hassas nokta seçimi
             self._open_zoom(fx, fy)
 
     def _on_rclick(self, ev):

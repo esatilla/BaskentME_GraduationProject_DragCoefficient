@@ -71,6 +71,13 @@ class DragCoefficientApp(
         self._fluid_selected    = False
         self._material_selected = False
         self._diameter_selected = False
+        self._selected_fluid_name = None
+        self.fluid_temp = tk.IntVar(value=25)
+
+        # Ölçüm bölgesi dikdörtgeni (frame koordinatları)
+        self._meas_rect = None          # (x1, y1, x2, y2) or None
+        self._rect_select_step = 0      # 0=kapalı, 1=ilk köşe bekleniyor, 2=ikinci köşe
+        self._rect_first_pt = None
 
         # Görüntü döndürme — varsayılan: 90°CW (deney modu)
         self.rotation_code = tk.IntVar(value=1)
@@ -82,6 +89,7 @@ class DragCoefficientApp(
 
         # Tespit eşiği (0–255; altındaki pikseller = nesne)
         self.detect_threshold = tk.IntVar(value=80)
+        self.detect_min_area  = tk.IntVar(value=150)
 
         # Sonuç geçmişi
         self.results = []

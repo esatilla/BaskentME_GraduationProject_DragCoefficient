@@ -33,7 +33,7 @@ def calculate_instantaneous_velocity(positions_px, times_s, px_per_mm):
     return times_mid, velocities
 
 
-def calculate_segment_velocities(positions, timestamps, px_per_mm, segment_mm=50.0):
+def calculate_segment_velocities(positions, timestamps, px_per_mm, segment_mm=10.0):
     """
     Her segment_mm mesafede bir ortalama hız döndürür.
     Düşme yönü: Y ekseni artar (piksel koordinatları).
@@ -71,7 +71,7 @@ def calculate_segment_velocities(positions, timestamps, px_per_mm, segment_mm=50
     return results
 
 
-def detect_terminal_velocity(times, velocities, stability_threshold=0.05, min_stable_points=15):
+def detect_terminal_velocity(times, velocities, stability_threshold=0.10, min_stable_points=15):
     """
     Hız-zaman grafiğinden terminal hızı tespit eder.
     Hız değişimi threshold'un altına düştüğünde terminal hıza ulaşıldığı kabul edilir.

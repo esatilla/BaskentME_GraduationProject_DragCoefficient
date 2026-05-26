@@ -189,21 +189,59 @@ class VideoLoopMixin:
         v_lbl = None
         if pos is not None:
             try:
-                if self.detector.is_active and len(self.detector.positions) > 1:
-                    segs = calculate_segment_velocities(
-                        self.detector.positions,
-                        self.detector.timestamps,
-                        self.calibrator.px_per_mm)
-                    if segs:
-                        last_v = segs[-1]['v_mm_s']
-                        v_lbl  = f"{last_v:.1f} mm/s"
-                        dists  = [s['cum_dist_mm'] / 10.0 for s in segs]
-                        vels   = [s['v_mm_s'] for s in segs]
-                        self.root.after(0, self._upd_speed, last_v)
-                        self.root.after(0, self._draw_vel, dists, vels)
-                annotated = self.detector.draw_overlay(annotated, pos, cnt, v_lbl)
-            except Exception:
-                pass
+                in_rect = True
+                rect = self._meas_rect
+                if rect is not None:
+                    in_rect = (rect[0] <= pos[0] <= rect[2] and
+                               rect[1] <= pos[1] <= rect[3])
+
+                if self.detector.is_active and in_rect and len(self.detector.positions) > 1:
+                    positions  = list(self.detector.positions)
+                    timestamps = list(self.detector.timestamps)
+                    if rect is not None:
+                        x1, y1, x2, y2 = rect
+                        filt = [(p, t) for p, t in zip(positions, timestamps)
+                                if x1 <= p[0] <= x2 and y1 <= p[1] <= y2]
+                        if filt:
+                            positions, timestamps = zip(*filt)
+                            positions  = list(positions)
+                            timestamps = list(timestamps)
+                        else:
+                            positions, timestamps = [], []
+
+                    if len(positions) > 1:
+                        segs = calculate_segment_velocities(
+                            positions, timestamps,
+                            self.calibrator.px_per_mm)
+                        if segs:
+                            last_v = segs[-1]['v_mm_s']
+                            v_lbl  = f"{last_v:.1f} mm/s"
+                            dists  = [s['cum_dist_mm'] / 10.0 for s in segs]
+                            vels   = [s['v_mm_s'] for s in segs]
+                            self.root.after(0, self._upd_speed, last_v)
+                            self.root.after(0, self._draw_vel, dists, vels)
+                        elif len(positions) >= 5:
+                            rp = positions[-20:]
+                            rt = timestamps[-20:]
+                            dy = abs(rp[-1][1] - rp[0][1])
+                            dt = rt[-1] - rt[0]
+                            pm = max(self.calibrator.px_per_mm, 1e-6)
+                            if dt > 0:
+                                iv = (dy / pm) / dt
+                                v_lbl = f"~{iv:.1f} mm/s"
+                                self.root.after(0, self._upd_speed, iv)
+            except Exception as e:
+                self.root.after(0, self._log, f"Hız hesap hatası: {e}")
+            annotated = self.detector.draw_overlay(annotated, pos, cnt, v_lbl)
+
+        # Ölçüm bölgesi dikdörtgeni
+        try:
+            rect = self._meas_rect
+            if rect is not None:
+                cv2.rectangle(annotated, (rect[0], rect[1]), (rect[2], rect[3]),
+                              (0, 0, 0), 2)
+        except Exception:
+            pass
 
         # Kalibrasyon modu işaretleri
         try:

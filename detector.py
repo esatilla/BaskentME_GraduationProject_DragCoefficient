@@ -119,21 +119,23 @@ class SilhouetteDetector:
             return frame
         cx, cy = pos
 
+        _CLR = (200, 0, 0)  # koyu mavi (BGR)
+
         # Sınır kutusu
         if cnt is not None:
             x, y, w, h = cv2.boundingRect(cnt)
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 180, 0), 2)
 
         # Ağırlık merkezi
-        cv2.circle(frame, (cx, cy), 6, (0, 255, 255), -1)
-        cv2.drawMarker(frame, (cx, cy), (0, 255, 255),
+        cv2.circle(frame, (cx, cy), 6, _CLR, -1)
+        cv2.drawMarker(frame, (cx, cy), _CLR,
                        cv2.MARKER_CROSS, 24, 2, cv2.LINE_AA)
 
         # Hız etiketi
         if label:
             cv2.putText(frame, label, (cx + 12, cy - 8),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7,
-                        (0, 255, 255), 2, cv2.LINE_AA)
+                        _CLR, 2, cv2.LINE_AA)
         return frame
 
     # ── Özet (results_mixin uyumluluğu) ──────────────────────────────────────

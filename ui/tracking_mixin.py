@@ -54,3 +54,35 @@ class TrackingMixin:
         """Tespit parlaklık eşiğini ayarla."""
         if self.detector is not None:
             self.detector.threshold = value
+
+    def _set_min_area(self, value):
+        if self.detector is not None:
+            self.detector.min_area = value
+
+    # ── Ölçüm bölgesi dikdörtgen seçimi ─────────────────────────────────────
+
+    def _start_rect_select(self):
+        self._rect_select_step = 1
+        self._rect_first_pt = None
+        self._log("Bölge seçimi: sol üst köşeye tıklayın.")
+
+    def _on_rect_click(self, fx, fy):
+        if self._rect_select_step == 1:
+            self._rect_first_pt = (fx, fy)
+            self._rect_select_step = 2
+            self._log(f"Sol üst köşe: ({fx}, {fy}) — şimdi sağ alt köşeye tıklayın.")
+        elif self._rect_select_step == 2:
+            x1, y1 = self._rect_first_pt
+            x2, y2 = fx, fy
+            self._meas_rect = (min(x1, x2), min(y1, y2),
+                               max(x1, x2), max(y1, y2))
+            self._rect_select_step = 0
+            self._rect_first_pt = None
+            r = self._meas_rect
+            self._log(f"Ölçüm bölgesi: ({r[0]},{r[1]}) – ({r[2]},{r[3]})")
+
+    def _clear_rect(self):
+        self._meas_rect = None
+        self._rect_select_step = 0
+        self._rect_first_pt = None
+        self._log("Ölçüm bölgesi kaldırıldı.")

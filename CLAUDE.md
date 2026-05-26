@@ -27,8 +27,8 @@ drag_tracker/
 │   ├── video_loop_mixin.py      # _launch_loop, _video_loop, _show_frame, grab callback (VideoLoopMixin)
 │   ├── source_mixin.py          # Kamera başlat/durdur toggle, canlı ROI değiştirme (SourceMixin)
 │   ├── calibration_mixin.py     # Birleşik kalibrasyon + zoom + otomatik kaydet/yükle (CalibrationMixin)
-│   ├── tracking_mixin.py        # Ölçüm başlat/durdur toggle, threshold ayarı (TrackingMixin)
-│   ├── results_mixin.py         # Cd hesap, terminal hız kontrolü, sonuç gösterimi (ResultsMixin)
+│   ├── tracking_mixin.py        # Ölçüm başlat/durdur toggle, threshold/min_area, bölge seçimi (TrackingMixin)
+│   ├── results_mixin.py         # Cd hesap, terminal hız, sıvı tablosu, regresyon grafiği (ResultsMixin)
 │   ├── export_mixin.py          # Belleğe kayıt, izle (ileri/geri/pause), dosyaya kaydet (ExportMixin)
 │   └── settings_mixin.py        # ROI/FPS/Gain ayarları, Mono8'de WB gizli (SettingsMixin)
 │
@@ -96,6 +96,22 @@ Manuel kaydet/yükle butonları kaldırılmıştır.
 ### Terminal Hız Kontrolü
 `detect_terminal_velocity()` stabil bölge bulamazsa `None` döner (fallback kaldırıldı).
 Cd hesabı terminal hız olmadan yapılmaz — "Terminal hıza ulaşılamadı" uyarısı verir.
+Segment mesafesi: 10mm (1 cm). Stabilite eşiği: CV < %10. `min_stable_points=3`.
+
+### Ölçüm Bölgesi (Dikdörtgen Seçimi)
+Kullanıcı ekranda dikdörtgen alan seçer ("▣ Bölge Seç" butonu, iki köşeye tıkla).
+Hız her yerde ölçülür ve overlay'de gösterilir, ama **sadece dikdörtgen içindeki noktalar**
+anlık hız grafiğine, segment hesabına, Cd hesabına ve regresyon grafiğine girer.
+Bölge ekranda siyah dikdörtgen olarak çizilir. "✕ Kaldır" ile temizlenir.
+
+### Sıcaklığa Bağlı Sıvı Özellikleri
+Sıcaklık butonları (15/20/25/30°C) ile sıvı yoğunluk ve viskozitesi otomatik güncellenir.
+Referans: Segur & Oberstar (gliserin), CRC Handbook (su).
+Gliserin viskozitesi sıcaklığa çok duyarlı: 20°C→1.412, 25°C→0.934, 30°C→0.629 Pa·s.
+
+### Lineer Regresyon Grafiği
+"📈 Regresyon Grafiği" butonu Cd hesabından sonra aktif olur.
+Hız–Zaman ve Hız–Mesafe grafikleri lineer regresyon doğrusu + R² değeri ile gösterilir.
 
 ### Video Kayıt Akışı
 Kayıt → belleğe frame biriktir → Durdur → İzle (slider ile ileri/geri, play/pause) → Dosyaya Kaydet.
@@ -114,6 +130,10 @@ Grab loop'ta HER frame belleğe yazılır (tam FPS). İzleme modunda bellekten o
 | ⏺ Kayıt | Belleğe frame biriktirmeye başlar |
 | ▶ İzle | Playback bar açılır (slider, play/pause, frame sayacı) |
 | 💾 Videoyu Kaydet | Bellekten dosyaya yazar |
+| ▣ Bölge Seç | İki köşe tıklayarak ölçüm dikdörtgeni belirle |
+| ✕ Kaldır | Ölçüm bölgesini kaldır |
+| Sıcaklık (15/20/25/30) | Sıvı ρ ve μ değerlerini sıcaklığa göre güncelle |
+| 📈 Regresyon Grafiği | Lineer regresyon ile hız analizi penceresi aç |
 
 ---
 
@@ -135,6 +155,7 @@ Parlak arka plan (backlit) — karanlık nesne (silüet):
 4. Koordinat dönüşümü (90°CW): `new_cx = h-1-cy, new_cy = cx`
 
 Parlaklık eşiği slider ile ayarlanabilir (10–250).
+Minimum blob alanı slider ile ayarlanabilir (1–500 px²) — küçük cisimler için düşürülür.
 
 ---
 
@@ -190,3 +211,12 @@ Parlaklık eşiği slider ile ayarlanabilir (10–250).
 | 2026-04-18 | Sıvılar: Mısır Şurubu, Gliserin, Su; Malzemeler: Pirinç, Cam, Alüminyum, Çelik |
 | 2026-04-18 | Cisim çapı butonları: 1–6 mm; Boru iç çapı: Ø45, Ø95 mm |
 | 2026-04-18 | Ölçüm başlatma kontrolü: sıvı/malzeme/çap seçilmeden ölçüm başlatılamaz |
+| 2026-05-26 | Min Alan slider (1–500 px²) — küçük cisim tespiti için |
+| 2026-05-26 | Anlık hız gösterimi: segment oluşmadan son 20 pozisyondan yaklaşık hız |
+| 2026-05-26 | Segment mesafesi 50mm → 10mm, stabilite eşiği %5 → %10 |
+| 2026-05-26 | Sıvı özellikleri düzeltmesi: Gliserin %99.9 (25°C), Rulman çeliği AISI 52100 |
+| 2026-05-26 | Sıcaklık butonları (15/20/25/30°C) — sıvı ρ ve μ tablodan otomatik |
+| 2026-05-26 | Lineer regresyon grafiği: Hız–Zaman + Hız–Mesafe, R², terminal hız çizgisi |
+| 2026-05-26 | Grafik render düzeltmesi: tostring_rgb → fig.savefig (siyah ekran fix) |
+| 2026-05-26 | Overlay renk: sarı → koyu mavi (beyaz arka planda görünürlük) |
+| 2026-05-26 | Ölçüm bölgesi dikdörtgen seçimi: bölge dışı veriler hesaplamaya girmiyor |
