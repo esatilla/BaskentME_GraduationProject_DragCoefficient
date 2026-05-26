@@ -93,6 +93,13 @@ Kalibrasyon yapıldığında `calibration_auto.json`'a otomatik kaydedilir.
 Uygulama açılışında `_auto_load_calib()` ile otomatik yüklenir.
 Manuel kaydet/yükle butonları kaldırılmıştır.
 
+### Kırılma Düzeltmesi (Position Correction)
+`calibrator.correct_position(x, y)` her tespit edilen pozisyona uygulanır.
+Silindirik cam tüpün optik kırılmasından kaynaklanan y-ekseni bozulmasını
+3. derece polinom ile düzeltir. `detect_fast` ve `detect` fonksiyonlarına
+`pos_corrector` callback olarak geçirilir (`_pos_corrector` property).
+Düzeltme, koordinat dönüşümünden (rotasyon) sonra, pozisyon kaydından önce yapılır.
+
 ### Terminal Hız Kontrolü
 `detect_terminal_velocity()` stabil bölge bulamazsa `None` döner (fallback kaldırıldı).
 Cd hesabı terminal hız olmadan yapılmaz — "Terminal hıza ulaşılamadı" uyarısı verir.
@@ -220,3 +227,4 @@ Minimum blob alanı slider ile ayarlanabilir (1–500 px²) — küçük cisimle
 | 2026-05-26 | Grafik render düzeltmesi: tostring_rgb → fig.savefig (siyah ekran fix) |
 | 2026-05-26 | Overlay renk: sarı → koyu mavi (beyaz arka planda görünürlük) |
 | 2026-05-26 | Ölçüm bölgesi dikdörtgen seçimi: bölge dışı veriler hesaplamaya girmiyor |
+| 2026-05-26 | Kırılma düzeltmesi: correct_position artık her pozisyona uygulanıyor (bug fix) |

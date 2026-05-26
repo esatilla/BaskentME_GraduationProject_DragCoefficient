@@ -90,7 +90,8 @@ class VideoLoopMixin:
 
                 pos, cnt = None, None
                 try:
-                    pos, cnt = self.detector.detect(frame, ts)
+                    pos, cnt = self.detector.detect(frame, ts,
+                                                    self._pos_corrector)
                 except Exception as e:
                     self.root.after(0, self._log, f"Tespit hatası: {e}")
 
@@ -125,7 +126,9 @@ class VideoLoopMixin:
         raw_gray: BayerRG8 ham veri (tek kanal, cvtColor gereksiz).
         Döndürme yapılmaz, koordinatlar dönüştürülür. Morfoloji atlanır."""
         try:
-            pos = self.detector.detect_fast(raw_gray, ts, self._rotation_transform)
+            pos = self.detector.detect_fast(
+                raw_gray, ts, self._rotation_transform,
+                self._pos_corrector)
             self._last_det_pos = pos
             self._last_det_cnt = None
         except Exception:
@@ -143,6 +146,14 @@ class VideoLoopMixin:
     @staticmethod
     def _rot90ccw(cx, cy, h, w):
         return cy, w - 1 - cx
+
+    @property
+    def _pos_corrector(self):
+        """Kırılma düzeltmesi aktifse calibrator.correct_position döndür."""
+        if hasattr(self.calibrator, 'refraction_poly') and \
+                self.calibrator.refraction_poly is not None:
+            return self.calibrator.correct_position
+        return None
 
     @property
     def _rotation_transform(self):

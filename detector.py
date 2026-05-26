@@ -33,10 +33,12 @@ class SilhouetteDetector:
         self.frame_count = 0
         self.is_active = False
 
-    def detect(self, frame, timestamp=None):
+    def detect(self, frame, timestamp=None, pos_corrector=None):
         """
         Frame'deki en büyük karanlık bölgeyi bul.
         is_active=True iken bulunan konumu kaydeder.
+
+        pos_corrector: (x_px, y_px) → (x_corrected, y_corrected) düzeltme fonksiyonu.
 
         Returns:
             ((cx, cy), contour)  — bulundu
@@ -72,6 +74,10 @@ class SilhouetteDetector:
         cx = int(M['m10'] / M['m00'])
         cy = int(M['m01'] / M['m00'])
 
+        if pos_corrector is not None:
+            cx, cy = pos_corrector(cx, cy)
+            cx, cy = int(round(cx)), int(round(cy))
+
         if self.is_active:
             self.positions.append((cx, cy))
             self.timestamps.append(timestamp)
@@ -79,12 +85,14 @@ class SilhouetteDetector:
 
         return (cx, cy), cnt
 
-    def detect_fast(self, frame, timestamp, coord_transform=None):
+    def detect_fast(self, frame, timestamp, coord_transform=None,
+                    pos_corrector=None):
         """Hızlı tespit: morfoloji yok, sadece threshold + centroid.
         800 FPS grab thread'inde kullanılır.
 
         coord_transform: (cx, cy, h, w) → (new_cx, new_cy) dönüşüm fonksiyonu.
-        Pozisyon kaydı dönüştürülmüş koordinatlarla yapılır.
+        pos_corrector: (x_px, y_px) → (x_corrected, y_corrected) düzeltme fonksiyonu.
+        Pozisyon kaydı dönüştürülmüş ve düzeltilmiş koordinatlarla yapılır.
         """
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if frame.ndim == 3 else frame
         _, mask = cv2.threshold(gray, self.threshold, 255, cv2.THRESH_BINARY_INV)
@@ -104,6 +112,11 @@ class SilhouetteDetector:
         if coord_transform is not None:
             h, w = frame.shape[:2]
             cx, cy = coord_transform(cx, cy, h, w)
+
+        # Kırılma düzeltmesi
+        if pos_corrector is not None:
+            cx, cy = pos_corrector(cx, cy)
+            cx, cy = int(round(cx)), int(round(cy))
 
         if self.is_active:
             self.positions.append((cx, cy))
