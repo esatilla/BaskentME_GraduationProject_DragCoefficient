@@ -164,26 +164,28 @@ def calculate_drag_coefficient(v_terminal_mm_s, diameter_mm, rho_particle, rho_f
 
 def apply_wall_correction(v_measured_mm_s, diameter_mm, cylinder_diameter_mm):
     """
-    Duvar etkisi (wall effect) düzeltmesi uygular - Francis/Ladenburg metodu.
-    Gerçek terminal hızı = ölçülen hız / düzeltme faktörü
-    
-    Returns: (v_corrected, correction_factor)
+    Duvar etkisi (wall effect) düzeltmesi — Francis/Ladenburg metodu.
+    Tüp duvarları sürüklemeyi artırır → ölçülen hız sonsuz ortamdan düşüktür.
+    Düzeltme: v_∞ = v_tube × K  (K > 1)
+
+    Francis: v_tube/v_∞ = 1 - 2.104λ + 2.089λ³ - 0.948λ⁵
+             K = 1 / (1 - 2.104λ + ...)
+
+    Returns: (v_corrected, K)
     """
     if cylinder_diameter_mm <= 0 or diameter_mm <= 0:
         return v_measured_mm_s, 1.0
-    
-    lambda_ = diameter_mm / cylinder_diameter_mm  # oranı
-    
+
+    lambda_ = diameter_mm / cylinder_diameter_mm
+
     if lambda_ >= 1.0:
         return v_measured_mm_s, 1.0
-    
-    # Ladenburg düzeltme faktörü (1 + 2.104λ + 2.089λ³ - ...)
-    # Bu faktörle ölçülen hız düzeltilir: v_true = v_measured * k_inverse
-    # Francis: k = 1 / (1 - 2.104λ + 2.089λ³)
-    k = 1.0 / (1.0 - 2.104 * lambda_ + 2.089 * lambda_**3 - 0.948 * lambda_**5)
-    v_corrected = v_measured_mm_s / k
-    
-    return v_corrected, k
+
+    f = 1.0 - 2.104 * lambda_ + 2.089 * lambda_**3 - 0.948 * lambda_**5
+    K = 1.0 / f
+    v_corrected = v_measured_mm_s * K
+
+    return v_corrected, K
 
 
 def _empirical_cd(Re):

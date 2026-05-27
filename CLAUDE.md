@@ -100,6 +100,11 @@ Silindirik cam tüpün optik kırılmasından kaynaklanan y-ekseni bozulmasını
 `pos_corrector` callback olarak geçirilir (`_pos_corrector` property).
 Düzeltme, koordinat dönüşümünden (rotasyon) sonra, pozisyon kaydından önce yapılır.
 
+### Duvar Düzeltmesi (Wall Correction)
+Francis/Ladenburg metodu: `v_∞ = v_tube × K`, `K = 1/(1 - 2.104λ + 2.089λ³ - 0.948λ⁵)`.
+Tüp duvarları sürüklemeyi artırır → tüpteki hız sonsuz ortamdan düşüktür → düzeltme **çarpma** yönünde.
+Ø5mm/Ø95mm: K = 1.124, Ø3mm/Ø95mm: K = 1.071.
+
 ### Terminal Hız Kontrolü
 `detect_terminal_velocity()` stabil bölge bulamazsa `None` döner (fallback kaldırıldı).
 Cd hesabı terminal hız olmadan yapılmaz — "Terminal hıza ulaşılamadı" uyarısı verir.
@@ -228,3 +233,4 @@ Minimum blob alanı slider ile ayarlanabilir (1–500 px²) — küçük cisimle
 | 2026-05-26 | Overlay renk: sarı → koyu mavi (beyaz arka planda görünürlük) |
 | 2026-05-26 | Ölçüm bölgesi dikdörtgen seçimi: bölge dışı veriler hesaplamaya girmiyor |
 | 2026-05-26 | Kırılma düzeltmesi: correct_position artık her pozisyona uygulanıyor (bug fix) |
+| 2026-05-27 | Duvar düzeltme formülü düzeltildi: v/k → v×k (ters yön bug fix) |
