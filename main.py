@@ -68,6 +68,7 @@ class DragCoefficientApp(
         self.fluid_viscosity   = tk.DoubleVar(value=0.0)
         self.cylinder_diameter = tk.DoubleVar(value=45.0)
         self.apply_wall_corr   = tk.BooleanVar(value=True)
+        self.detrend_velocity  = tk.BooleanVar(value=False)
         self._fluid_selected    = False
         self._material_selected = False
         self._diameter_selected = False

@@ -188,6 +188,23 @@ def apply_wall_correction(v_measured_mm_s, diameter_mm, cylinder_diameter_mm):
     return v_corrected, K
 
 
+def detrend_segment_velocities(segs):
+    """Segment hızlarından lineer trendi kaldır (viskozite gradyanı düzeltmesi).
+    Ortalama hızı korur, eğimi sıfırlar."""
+    if len(segs) < 3:
+        return segs
+    dists = np.array([s['cum_dist_mm'] for s in segs])
+    vels = np.array([s['v_mm_s'] for s in segs])
+    slope, _, _, _, _ = linregress(dists, vels)
+    dist_mean = np.mean(dists)
+    corrected = []
+    for s in segs:
+        sc = dict(s)
+        sc['v_mm_s'] = s['v_mm_s'] - slope * (s['cum_dist_mm'] - dist_mean)
+        corrected.append(sc)
+    return corrected
+
+
 def _empirical_cd(Re):
     """Schiller-Naumann ampirik sürüklenme katsayısı."""
     if Re <= 0:

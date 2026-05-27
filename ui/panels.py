@@ -214,6 +214,11 @@ class PanelsMixin:
                        bg=PANEL_BG, fg=TEXT_LIGHT, selectcolor=ACCENT,
                        activebackground=PANEL_BG, font=FONT_LABEL
                        ).pack(anchor="w", padx=8, pady=2)
+        tk.Checkbutton(p, text="Nem gradyanı düzelt",
+                       variable=self.detrend_velocity,
+                       bg=PANEL_BG, fg=TEXT_LIGHT, selectcolor=ACCENT,
+                       activebackground=PANEL_BG, font=FONT_LABEL
+                       ).pack(anchor="w", padx=8, pady=2)
 
         # Takip
         self._sec(p, "🎯 TAKİP")

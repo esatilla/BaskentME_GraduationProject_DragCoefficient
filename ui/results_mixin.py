@@ -14,7 +14,8 @@ import matplotlib.pyplot as plt
 from PIL import Image, ImageTk
 
 from physics import (calculate_segment_velocities, detect_terminal_velocity,
-                     calculate_drag_coefficient, apply_wall_correction)
+                     calculate_drag_coefficient, apply_wall_correction,
+                     detrend_segment_velocities)
 from ui.theme import (DARK_BG, PANEL_BG, TEXT_LIGHT, TEXT_DIM,
                       SUCCESS, WARNING, HIGHLIGHT)
 
@@ -53,6 +54,10 @@ class ResultsMixin:
                 "Yetersiz Segment",
                 "En az 2 segment (2×1 cm) gerekli — cismi daha uzun mesafede bırakın.")
             return
+
+        if self.detrend_velocity.get() and len(segs) >= 3:
+            segs = detrend_segment_velocities(segs)
+            self._log("Nem gradyanı düzeltmesi uygulandı.")
 
         vels   = [seg['v_mm_s'] for seg in segs]
         t_mids = [(seg['t_start'] + seg['t_end']) / 2.0 for seg in segs]
@@ -338,6 +343,9 @@ class ResultsMixin:
         if len(segs) < 2:
             messagebox.showwarning("Veri Yok", "En az 2 segment (2×5 cm) gerekli.")
             return
+
+        if self.detrend_velocity.get() and len(segs) >= 3:
+            segs = detrend_segment_velocities(segs)
 
         cum_dists_cm = [seg['cum_dist_mm'] / 10.0 for seg in segs]
         vels         = [seg['v_mm_s'] for seg in segs]

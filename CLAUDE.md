@@ -100,6 +100,14 @@ Silindirik cam tüpün optik kırılmasından kaynaklanan y-ekseni bozulmasını
 `pos_corrector` callback olarak geçirilir (`_pos_corrector` property).
 Düzeltme, koordinat dönüşümünden (rotasyon) sonra, pozisyon kaydından önce yapılır.
 
+### Nem Gradyanı Düzeltmesi (Detrend)
+Gliserin higroskopik — havadan nem emer, üst katman daha seyreltik (düşük viskozite).
+Bu viskozite gradyanı özellikle büyük bilyalerde (Ø5mm) ölçülebilir hız düşüşü yaratır.
+"Nem gradyanı düzelt" checkbox'ı aktifken segment hızlarına lineer detrend uygulanır:
+ortalama hız korunur, mesafeye bağlı lineer eğim sıfırlanır.
+`detrend_segment_velocities()` fonksiyonu `physics.py`'de tanımlı.
+Cd hesabı, canlı hız gösterimi, hız grafiği ve regresyon grafiği etkilenir.
+
 ### Duvar Düzeltmesi (Wall Correction)
 Francis/Ladenburg metodu: `v_∞ = v_tube × K`, `K = 1/(1 - 2.104λ + 2.089λ³ - 0.948λ⁵)`.
 Tüp duvarları sürüklemeyi artırır → tüpteki hız sonsuz ortamdan düşüktür → düzeltme **çarpma** yönünde.
@@ -234,3 +242,4 @@ Minimum blob alanı slider ile ayarlanabilir (1–500 px²) — küçük cisimle
 | 2026-05-26 | Ölçüm bölgesi dikdörtgen seçimi: bölge dışı veriler hesaplamaya girmiyor |
 | 2026-05-26 | Kırılma düzeltmesi: correct_position artık her pozisyona uygulanıyor (bug fix) |
 | 2026-05-27 | Duvar düzeltme formülü düzeltildi: v/k → v×k (ters yön bug fix) |
+| 2026-05-27 | Nem gradyanı düzeltmesi: lineer detrend ile viskozite gradyanı kompanzasyonu |

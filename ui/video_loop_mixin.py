@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageTk
 
-from physics import calculate_segment_velocities
+from physics import calculate_segment_velocities, detrend_segment_velocities
 from ui.theme import SUCCESS, TEXT_DIM
 
 
@@ -224,6 +224,8 @@ class VideoLoopMixin:
                         segs = calculate_segment_velocities(
                             positions, timestamps,
                             self.calibrator.px_per_mm)
+                        if segs and self.detrend_velocity.get() and len(segs) >= 3:
+                            segs = detrend_segment_velocities(segs)
                         if segs:
                             last_v = segs[-1]['v_mm_s']
                             v_lbl  = f"{last_v:.1f} mm/s"
